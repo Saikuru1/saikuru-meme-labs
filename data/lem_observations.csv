@@ -1,2 +1,3 @@
 timestamp_utc,pair_address,native_price_usd,native_reserve,lp_native_usd,token_price_usd,market_cap_usd,lem,lp_delta_usd,lp_delta_pct,data_source
 
+2025-12-21T19:59:18.249879,0x933477eba23726ca95a957cb85dbb1957267ef85,855.81,,503675.49626555777,5.144017170100504e-08,43323633.81941432,86.01497222047183,,,onchain_live
