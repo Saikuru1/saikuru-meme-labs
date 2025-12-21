@@ -1,5 +1,5 @@
 """
-LEM v1.0 — Native Liquidity (LPₙ)
+LEM v1.1 — Native Liquidity (LPₙ)
 --------------------------------
 Implements Section 2.1 of the LEM paper.
 
@@ -13,8 +13,17 @@ No market cap, no ratios, no trading logic.
 
 from web3 import Web3
 from config import NATIVE_ASSET_ADDRESS
-from chain import get_pair_tokens, get_pair_reserves, get_token_decimals, normalize_reserve
+from chain import (
+    get_pair_tokens,
+    get_pair_reserves,
+    get_token_decimals,
+    normalize_reserve,
+)
 
+
+# =========================
+# Native Side Resolution
+# =========================
 
 def identify_native_side(pair_address: str) -> dict:
     """
@@ -30,19 +39,32 @@ def identify_native_side(pair_address: str) -> dict:
     Raises:
         ValueError if native asset is not part of the pair.
     """
-    tokens = get_pair_tokens(pair_address)
-    token0 = tokens["token0"]
-    token1 = tokens["token1"]
+    token0, token1 = get_pair_tokens(pair_address)
 
     native = Web3.to_checksum_address(NATIVE_ASSET_ADDRESS)
 
     if token0 == native:
-        return {"native_is_token0": True, "token0": token0, "token1": token1}
+        return {
+            "native_is_token0": True,
+            "token0": token0,
+            "token1": token1,
+        }
+
     if token1 == native:
-        return {"native_is_token0": False, "token0": token0, "token1": token1}
+        return {
+            "native_is_token0": False,
+            "token0": token0,
+            "token1": token1,
+        }
 
-    raise ValueError("Native asset not found in this pair (not a token/native pool).")
+    raise ValueError(
+        "Native asset not found in this pair (not a token/native pool)."
+    )
 
+
+# =========================
+# Native Reserve
+# =========================
 
 def get_native_reserve(pair_address: str) -> float:
     """
@@ -57,7 +79,6 @@ def get_native_reserve(pair_address: str) -> float:
     side = identify_native_side(pair_address)
     reserves = get_pair_reserves(pair_address)
 
-    # Determine which token is native and which raw reserve corresponds to it
     if side["native_is_token0"]:
         native_token_address = side["token0"]
         raw_native_reserve = reserves["reserve0"]
@@ -70,6 +91,10 @@ def get_native_reserve(pair_address: str) -> float:
 
     return float(native_reserve)
 
+
+# =========================
+# LPₙ Calculation
+# =========================
 
 def calculate_lp_native_usd(pair_address: str, native_price_usd: float) -> float:
     """

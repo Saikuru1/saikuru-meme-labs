@@ -1,5 +1,5 @@
 """
-LEM v1.0 — Blockchain Interface Layer
+LEM v1.2 — Blockchain Interface Layer
 ------------------------------------
 This module handles all direct blockchain interactions.
 It contains NO financial logic and NO calculations.
@@ -9,13 +9,14 @@ Responsibilities:
 - Instantiate contracts
 - Read raw on-chain values
 - Normalize decimals
+- Resolve base token and metadata (annotations only, best-effort)
 
 All values returned are Python-native types.
 """
 
 from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput
-from config import RPC_URL
+from config import RPC_URL, NATIVE_ASSET_ADDRESS
 from abi import PAIR_ABI, ERC20_ABI
 
 
@@ -53,8 +54,8 @@ def get_pair_reserves(pair_address: str) -> dict:
 
     Returns:
         {
-            "reserve0": float,
-            "reserve1": float,
+            "reserve0": int,
+            "reserve1": int,
             "timestamp": int
         }
     """
@@ -72,25 +73,30 @@ def get_pair_reserves(pair_address: str) -> dict:
     }
 
 
-def get_pair_tokens(pair_address: str) -> dict:
+def get_pair_tokens(pair_address: str) -> tuple[str, str]:
     """
     Fetch token0 and token1 addresses from a pair contract.
 
     Returns:
-        {
-            "token0": str,
-            "token1": str
-        }
+        (token0, token1)
     """
     pair = get_contract(pair_address, PAIR_ABI)
 
     token0 = pair.functions.token0().call()
     token1 = pair.functions.token1().call()
 
-    return {
-        "token0": Web3.to_checksum_address(token0),
-        "token1": Web3.to_checksum_address(token1)
-    }
+    return (
+        Web3.to_checksum_address(token0),
+        Web3.to_checksum_address(token1)
+    )
+
+
+def get_base_token_address(pair_address: str) -> str:
+    """
+    Resolve the non-native (base) token address from a pair.
+    """
+    token0, token1 = get_pair_tokens(pair_address)
+    return token1 if token0.lower() == NATIVE_ASSET_ADDRESS.lower() else token0
 
 
 # =========================
@@ -119,6 +125,46 @@ def get_total_supply(token_address: str) -> float:
     decimals = get_token_decimals(token_address)
 
     return raw_supply / (10 ** decimals)
+
+
+def get_token_metadata(token_address: str) -> dict:
+    """
+    Fetch ERC-20 token metadata (annotations only).
+
+    This function is BEST-EFFORT and NON-FATAL.
+    Missing or non-standard metadata must never break observation.
+
+    Returns:
+        {
+            "symbol": str,
+            "name": str
+        }
+    """
+    token = get_contract(token_address, ERC20_ABI)
+
+    symbol = ""
+    name = ""
+
+    # Attempt symbol()
+    try:
+        symbol = token.functions.symbol().call()
+        if isinstance(symbol, bytes):
+            symbol = symbol.decode("utf-8").rstrip("\x00")
+    except Exception:
+        symbol = ""
+
+    # Attempt name()
+    try:
+        name = token.functions.name().call()
+        if isinstance(name, bytes):
+            name = name.decode("utf-8").rstrip("\x00")
+    except Exception:
+        name = ""
+
+    return {
+        "symbol": symbol,
+        "name": name
+    }
 
 
 # =========================

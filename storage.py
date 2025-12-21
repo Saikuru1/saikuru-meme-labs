@@ -1,8 +1,8 @@
 """
-LEM v1.2 — Observation Storage (Provenance + Timestamp Aware)
--------------------------------------------------------------
-Handles persistent storage of LEM observations with explicit data provenance
-and optional timestamp overrides.
+LEM v1.3 — Observation Storage (Provenance + Metadata Aware)
+------------------------------------------------------------
+Handles persistent storage of LEM observations with explicit data provenance,
+optional timestamp overrides, and canonical metadata annotations.
 
 Responsibilities:
 - Append timestamped observations to CSV
@@ -10,6 +10,7 @@ Responsibilities:
 - Preserve raw values exactly as computed
 - Require data_source labeling for every row
 - Allow historical timestamp overrides (Phase B)
+- Support chain and token metadata annotations (Phase C.1.1)
 
 No calculations, no aggregation, no interpretation.
 """
@@ -20,9 +21,14 @@ from datetime import datetime
 from config import DATA_DIR, LEM_LOG_FILE
 
 
+# =========================
+# CSV Schema (Append-Only)
+# =========================
+
 CSV_HEADER = [
     "timestamp_utc",
     "pair_address",
+    "chain",
     "native_price_usd",
     "native_reserve",
     "lp_native_usd",
@@ -32,11 +38,20 @@ CSV_HEADER = [
     "lp_delta_usd",
     "lp_delta_pct",
     "data_source",
+    "token_symbol",
+    "token_name",
 ]
 
 
+# =========================
+# Storage Initialization
+# =========================
+
 def ensure_storage():
-    """Ensure data directory and CSV file exist."""
+    """
+    Ensure data directory and CSV file exist.
+    Creates them if missing.
+    """
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
 
@@ -45,6 +60,10 @@ def ensure_storage():
             writer = csv.writer(f)
             writer.writerow(CSV_HEADER)
 
+
+# =========================
+# Append Observation
+# =========================
 
 def append_observation(
     pair_address: str,
@@ -57,16 +76,28 @@ def append_observation(
     lp_delta_usd,
     lp_delta_pct,
     data_source: str,
+    chain: str | None = None,
+    token_symbol: str | None = None,
+    token_name: str | None = None,
     timestamp_override: str | None = None,
 ):
     """
     Append a single LEM observation row.
 
-    data_source must explicitly identify provenance, e.g.:
-    - "reconstructed_gecko"
-    - "onchain_live"
+    Parameters:
+    - data_source (required):
+        Explicit provenance label, e.g.:
+        - "reconstructed_gecko"
+        - "onchain_live"
 
-    timestamp_override is optional and used ONLY for historical backfills.
+    - chain (optional):
+        Canonical chain identifier, e.g. "bsc", "ethereum"
+
+    - token_symbol / token_name (optional):
+        Human-readable annotations (non-canonical metadata)
+
+    - timestamp_override (optional):
+        Used ONLY for historical backfills (Phase B)
     """
     if not data_source:
         raise ValueError("data_source must be provided")
@@ -80,6 +111,7 @@ def append_observation(
         writer.writerow([
             timestamp,
             pair_address,
+            chain or "",
             native_price_usd,
             native_reserve,
             lp_native_usd,
@@ -89,4 +121,6 @@ def append_observation(
             lp_delta_usd,
             lp_delta_pct,
             data_source,
+            token_symbol or "",
+            token_name or "",
         ])

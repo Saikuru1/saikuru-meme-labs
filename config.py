@@ -9,6 +9,9 @@ No logic is permitted in this file.
 # Blockchain Configuration
 # =========================
 
+# Canonical chain identifier (used for research partitioning)
+CHAIN = "bsc"
+
 # BNB Chain public RPC (replace with private node later if desired)
 RPC_URL = "https://bsc-dataseed.binance.org/"
 
