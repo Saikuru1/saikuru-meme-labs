@@ -1,0 +1,35 @@
+name: LEM Phase C Observer
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install requests pandas web3
+
+      - name: Run LEM observation
+        run: |
+          python engine_once.py
+
+      - name: Commit and push data
+        run: |
+          git config user.name "lem-observer-bot"
+          git config user.email "lem@saikuru.ai"
+          git add data/lem_observations.csv
+          git commit -m "LEM Phase C observation" || echo "No changes"
+          git push
