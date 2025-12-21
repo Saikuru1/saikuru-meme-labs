@@ -30,6 +30,6 @@ jobs:
         run: |
           git config user.name "lem-observer-bot"
           git config user.email "lem@saikuru.ai"
-          git add data/lem_observations.csv
+          git add -f data/lem_observations.csv
           git commit -m "LEM Phase C observation" || echo "No changes"
           git push
